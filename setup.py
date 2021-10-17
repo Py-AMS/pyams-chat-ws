@@ -60,6 +60,7 @@ setup(name='pyams_chat_ws',
           'setuptools',
           # -*- Extra requirements: -*-
           'aioredis',
+          'pkg_resources',
           'starlette'
       ],
       entry_points="")

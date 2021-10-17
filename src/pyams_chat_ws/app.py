@@ -24,11 +24,12 @@ import aioredis
 import async_timeout
 import httpx
 from starlette.applications import Starlette
-from starlette.routing import WebSocketRoute
+from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
 
 from pyams_chat_ws import LOGGER
 from pyams_chat_ws.chat import ChatEndpoint
+from pyams_chat_ws.monitor import MonitorEndpoint
 
 
 __docformat__ = 'restructuredtext'
@@ -54,6 +55,8 @@ class ChatApp(Starlette):
 
     def __init__(self, config):
         super().__init__(routes=[
+            Route(config.get('monitor_endpoint', '/monitor'),
+                  MonitorEndpoint),
             WebSocketRoute(config.get('ws_endpoint', "/ws/chat"),
                            ChatEndpoint)
         ])
