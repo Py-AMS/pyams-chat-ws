@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.1.1
+-----
+ - updated package dependencies
+
 1.1.0
 -----
  - added HTTP monitoring endpoint
