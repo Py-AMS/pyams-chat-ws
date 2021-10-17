@@ -36,6 +36,11 @@ This module can be used by GUnicorn or Uvicorn to create application:
 
 # pylint: disable=logging-fstring-interpolation
 
+try:
+    from elasticapm.contrib.starlette import ElasticAPM, make_apm_client
+except ImportError:
+    ElasticAPM = make_apm_client = None
+
 from starlette.middleware.authentication import AuthenticationMiddleware
 
 from .app import ChatApp
@@ -45,8 +50,22 @@ from .auth import JWTAuthenticationBackend
 __docformat__ = 'restructuredtext'
 
 
+def get_config_keys(config, prefix):
+    """Get configuration options matching given prefix"""
+    for key, value in config.items():
+        if key.startswith(prefix):
+            yield key[len(prefix):].upper(), value
+
+
 async def create_application(config):
     app = await ChatApp.create(config)
     app.add_middleware(AuthenticationMiddleware,
                        backend=JWTAuthenticationBackend(config))
+    if ElasticAPM is not None:
+        apm_prefix = config.pop('apm_prefix', 'apm_')
+        apm_config = dict(get_config_keys(config, apm_prefix))
+        service_name = apm_config.get('SERVICE_NAME')
+        if service_name:
+            apm = make_apm_client(apm_config)
+            app.add_middleware(ElasticAPM, client=apm)
     return app
