@@ -60,6 +60,8 @@ setup(name='pyams_chat_ws',
           'setuptools',
           # -*- Extra requirements: -*-
           'aioredis',
+          'async_timeout',
+          'httpx',
           'starlette'
       ],
       entry_points="")
