@@ -62,6 +62,7 @@ setup(name='pyams_chat_ws',
           'aioredis',
           'async_timeout',
           'httpx',
-          'starlette'
+          'starlette',
+          'websockets'
       ],
       entry_points="")
