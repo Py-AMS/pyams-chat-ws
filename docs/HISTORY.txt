@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.1.4
+-----
+ - added configuration option to disable SSL certificates verification
+
 1.1.3
 -----
  - updated package dependencies
