@@ -16,16 +16,27 @@
 
 __docformat__ = 'restructuredtext'
 
+import sys
+
 import pkg_resources
 from pkg_resources import DistributionNotFound
 from starlette.endpoints import HTTPEndpoint
 from starlette.responses import JSONResponse
 
 
+versions = [
+    f'Python/{sys.version_info.major}.{sys.version_info.minor}'
+]
+for package in ('websockets', 'Starlette'):
+    versions.append(f'{package}/{pkg_resources.get_distribution(package).version}')
+
 try:
     distribution = pkg_resources.get_distribution('pyams-chat-ws')
 except DistributionNotFound:
     distribution = None
+
+versions.append(f'''PyAMS-chat-ws/{distribution.version 
+    if distribution is not None else "development"}''')
 
 
 class MonitorEndpoint(HTTPEndpoint):
@@ -36,5 +47,5 @@ class MonitorEndpoint(HTTPEndpoint):
         return JSONResponse({
             'status': 'OK',
             'sessions_count': len(self.scope['app'].sessions),
-            'server_version': distribution.version if distribution is not None else 'development'
+            'server': ' '.join(versions)
         })

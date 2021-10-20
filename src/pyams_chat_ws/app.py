@@ -28,7 +28,7 @@ from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
 
 from pyams_chat_ws import LOGGER
-from pyams_chat_ws.chat import ChatEndpoint
+from pyams_chat_ws.chat import WSChatEndpoint
 from pyams_chat_ws.monitor import MonitorEndpoint
 
 
@@ -58,7 +58,7 @@ class ChatApp(Starlette):
             Route(config.get('monitor_endpoint', '/monitor'),
                   MonitorEndpoint),
             WebSocketRoute(config.get('ws_endpoint', "/ws/chat"),
-                           ChatEndpoint)
+                           WSChatEndpoint)
         ])
         self.config = config
 
@@ -82,30 +82,39 @@ class ChatApp(Starlette):
     async def add_session(self, ws: WebSocket):  # pylint: disable=invalid-name
         """Add session from given websocket"""
         context_url = self.config.get('context_url')
-        LOGGER.debug(f'Context URL: {context_url}')
+        LOGGER.debug(f'>>> Adding new websocket session...')
+        LOGGER.debug(f'  > client: {ws.client}')
+        LOGGER.debug(f'  > context URL: {context_url}')
         token = ws.user.access_token
-        LOGGER.debug(f'  > Token: {token}')
+        LOGGER.debug(f'  > token: {token}')
         async with httpx.AsyncClient(verify=self.config.get('ssl_verify', True)) as client:
             result = await client.get(context_url, headers={
                 'Authorization': f'Bearer {token}',
                 'Content-type': 'application/json'
             })
-            LOGGER.debug(f'  > Result: {result}')
+            LOGGER.debug(f'  > got context: {result}')
             if result.status_code != httpx.codes.OK:
                 return None
             context = result.json()
-            LOGGER.debug(f'  > Context: {context}')
-            self.sessions[ws.client] = {
-                'ws': ws,
-                'host': ws.headers.get('origin'),
-                'context': context,
-                'principal_id': ws.user.username,
-                'channels': [self.config.get('channel_name', "chat:main")]
-            }
-            LOGGER.debug(f'User sessions count: {len(self.sessions)}')
+            LOGGER.debug(f'  > context data: {context}')
+            async with self.sessions_lock:
+                self.sessions[ws.client] = {
+                    'ws': ws,
+                    'host': ws.headers.get('origin'),
+                    'context': context,
+                    'principal_id': ws.user.username,
+                    'channels': [self.config.get('channel_name', "chat:main")]
+                }
+                LOGGER.debug(f'>>> users sessions count: {len(self.sessions)}')
+
+    def drop_session(self, ws: WebSocket):  # pylint: disable=invalid-name
+        """Drop session from given websocket"""
+        LOGGER.debug(f'>>> dropping session for {ws.client}...')
+        self.sessions.pop(ws.client, None)
 
     async def dispatch(self, message):
         """Dispatch received message"""
+        LOGGER.debug(">>> dispatching message...")
         if isinstance(message, (str, bytes)):
             try:
                 message = json.loads(message)
@@ -118,18 +127,23 @@ class ChatApp(Starlette):
             except ValueError:
                 return
         if message:
-            LOGGER.debug("Dispatching message...")
             async with self.sessions_lock:
                 for session in self.sessions.values():
-                    LOGGER.debug(f">>> checking session: {session}")
+                    LOGGER.debug(f"  > checking session: {session}")
                     # don't send messages to other hosts
                     if session['host'] != message.get('host'):
                         continue
                     # don't send messages to message emitter
                     if session['principal_id'] == message.get('source', {}).get('id'):
                         continue
-                    LOGGER.debug(f"  > sending message: {message}")
-                    await session['ws'].send_json(message)
+                    # filter message targets
+                    try:
+                        if (set(session['context']['principal']['principals']) &
+                                set(message['target']['principals'])):
+                            LOGGER.debug(f"  > sending message: {message}")
+                            await session['ws'].send_json(message)
+                    except KeyError:
+                        continue
             # update Redis notifications queue
             cache_key = self.config.get('notifications_key')
             if cache_key:
@@ -141,7 +155,3 @@ class ChatApp(Starlette):
                         .lpush(cache_key, json.dumps(message)) \
                         .ltrim(cache_key, 0, cache_length - 1) \
                         .execute()
-
-    def drop_session(self, ws: WebSocket):  # pylint: disable=invalid-name
-        """Drop session from given websocket"""
-        self.sessions.pop(ws.client, None)

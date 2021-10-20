@@ -69,5 +69,5 @@ class JWTAuthenticationBackend(AuthenticationBackend):
                 LOGGER.debug(f'JWT username: {username}')
                 return AuthCredentials(['authenticated']), \
                     JWTUser(username, token)
-        LOGGER.debug("Can't get credentials from authentication token!")
+        LOGGER.debug("Can't get valid credentials from authentication token!")
         return None

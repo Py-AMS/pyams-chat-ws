@@ -2,6 +2,7 @@
 'https://plantuml.com/sequence-diagram
 
 actor Client
+participant Worker
 participant App
 participant Chat
 collections Redis
@@ -11,8 +12,16 @@ group start
     Chat -> Redis: subscribe()
 end
 
-group auth
+group app
     autonumber 1.1
+    Client -> Worker: register('chat-ws.js')
+    Worker --> Client: [OK]
+    Client -> Worker: setConfig(endpoint, verifyRoute)
+    Worker --> Client: [OK]
+end
+
+group auth
+    autonumber 2.1
     Client -> App: GET /api/auth/token/verify
     App -> JWT_auth: get_current_jwt_token(request)
     JWT_auth --> App: {accessToken, refreshToken}
@@ -20,7 +29,7 @@ group auth
 end
 
 group connect
-    autonumber 2.1
+    autonumber 3.1
     Client -> Chat: new WebSocket('ws://', ['accessToken', accessToken])
     Chat -> JWT_auth: get_claims()
     JWT_auth --> Chat: [claims]
@@ -31,7 +40,7 @@ group connect
 end
 
 group publish
-    autonumber 4.1
+    autonumber 5.1
     Client -> App: POST xxx.json
     App -> Redis: publish('channel', message)
     Redis --> Chat: (sub)
@@ -39,7 +48,7 @@ group publish
 end
 
 group chat
-    autonumber 5.1
+    autonumber 6.1
     Client -> Chat: publish('channel', message)
     Chat -> Client: (dispatch: message)
 end

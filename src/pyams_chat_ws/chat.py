@@ -17,6 +17,7 @@ This module defines a websocket endpoint used for chat.
 
 # pylint: disable=logging-fstring-interpolation
 
+from starlette.authentication import UnauthenticatedUser
 from starlette.endpoints import WebSocketEndpoint
 from starlette.websockets import WebSocket
 
@@ -26,7 +27,7 @@ from pyams_chat_ws import LOGGER
 __docformat__ = 'restructuredtext'
 
 
-class ChatEndpoint(WebSocketEndpoint):
+class WSChatEndpoint(WebSocketEndpoint):
     """Main chat endpoint"""
 
     encoding = 'text'
@@ -39,12 +40,20 @@ class ChatEndpoint(WebSocketEndpoint):
             if app is not None:
                 LOGGER.debug(f'Adding user session for {ws.user.username}...')
                 await app.add_session(ws)
+        else:
+            await ws.send_json({
+                'action': 'logout',
+                'status': 'FORBIDDEN'
+            })
 
     async def on_disconnect(self, ws: WebSocket, close_code: int):  # pylint: disable=arguments-renamed
         """Websocket disconnection handler"""
         app = self.scope.get('app', None)
         if app is not None:
-            LOGGER.debug(f'Dropping user session for {ws.user.username}...')
+            if isinstance(ws.user, UnauthenticatedUser):
+                LOGGER.debug(f'Dropping session for unauthenticated user...')
+            else:
+                LOGGER.debug(f'Dropping user session for {ws.user.username}...')
             app.drop_session(ws)
 
     async def on_receive(self, ws: WebSocket, data):  # pylint: disable=arguments-renamed
