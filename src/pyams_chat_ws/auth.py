@@ -56,7 +56,7 @@ class JWTAuthenticationBackend(AuthenticationBackend):
             return None
         authority = self.config.get('jwt_authority')
         LOGGER.debug(f'Checking JWT authority {authority}')
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=self.config.get('ssl_verify', True)) as client:
             result = await client.get(authority, headers={
                 'Authorization': f'Bearer {token}',
                 'Content-type': 'application/json'

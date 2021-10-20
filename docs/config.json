@@ -9,6 +9,7 @@
 	"context_url": "http://localhost:6543/api/chat/context",
 	"jwt_authority": "http://localhost:6543/api/auth/jwt/token",
 	"jwt_header": "accessToken",
+	"ssl_verify": true,
 	"apm_service_name": "WS_chat",
 	"apm_server_url": "http://localhost:8200",
 	"apm_environment": "development",

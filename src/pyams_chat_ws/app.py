@@ -85,7 +85,7 @@ class ChatApp(Starlette):
         LOGGER.debug(f'Context URL: {context_url}')
         token = ws.user.access_token
         LOGGER.debug(f'  > Token: {token}')
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=self.config.get('ssl_verify', True)) as client:
             result = await client.get(context_url, headers={
                 'Authorization': f'Bearer {token}',
                 'Content-type': 'application/json'
