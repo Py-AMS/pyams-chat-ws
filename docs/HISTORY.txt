@@ -4,6 +4,7 @@ Changelog
 1.1.4
 -----
  - added configuration option to disable SSL certificates verification
+ - updated logging
 
 1.1.3
 -----
