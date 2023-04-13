@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.1.7
+-----
+ - updated packaging
+
 1.1.6
 -----
  - remove targets list from dispatched messages
