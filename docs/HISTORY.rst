@@ -1,6 +1,11 @@
 Changelog
 =========
 
+1.1.6
+-----
+ - remove targets list from dispatched messages
+ - added support for Python 3.10 and 3.11
+
 1.1.5
 -----
  - merge avec origin/master
