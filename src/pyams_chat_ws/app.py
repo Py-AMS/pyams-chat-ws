@@ -128,6 +128,7 @@ class ChatApp(Starlette):
                 return
         if message:
             async with self.sessions_lock:
+                principals = set(message.pop('target', {}).get('principals', []))
                 for session in self.sessions.values():
                     LOGGER.debug(f"  > checking session: {session}")
                     # don't send messages to other hosts
@@ -138,8 +139,7 @@ class ChatApp(Starlette):
                         continue
                     # filter message targets
                     try:
-                        if (set(session['context']['principal']['principals']) &
-                                set(message['target']['principals'])):
+                        if set(session['context']['principal']['principals']) & principals:
                             LOGGER.debug(f"  > sending message: {message}")
                             await session['ws'].send_json(message)
                     except KeyError:
