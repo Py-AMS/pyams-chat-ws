@@ -17,9 +17,11 @@
 __docformat__ = 'restructuredtext'
 
 import sys
+try:
+    from importlib.metadata import PackageNotFoundError, distribution
+except ImportError:
+    from importlib_metadata import PackageNotFoundError, distribution
 
-import pkg_resources
-from pkg_resources import DistributionNotFound
 from starlette.endpoints import HTTPEndpoint
 from starlette.responses import JSONResponse
 
@@ -28,11 +30,11 @@ versions = [
     f'Python/{sys.version_info.major}.{sys.version_info.minor}'
 ]
 for package in ('websockets', 'Starlette'):
-    versions.append(f'{package}/{pkg_resources.get_distribution(package).version}')
+    versions.append(f'{package}/{distribution(package).version}')
 
 try:
-    distribution = pkg_resources.get_distribution('pyams-chat-ws')
-except DistributionNotFound:
+    distribution = distribution('pyams-chat-ws')
+except PackageNotFoundError:
     distribution = None
 
 versions.append(f'''PyAMS-chat-ws/{distribution.version 
