@@ -1,6 +1,11 @@
 Changelog
 =========
 
+2.0.1
+-----
+ - added asyncio context manager to application
+ - removed aioredis dependency
+
 2.0.0
 -----
  - upgraded to Pyramid 2.0
