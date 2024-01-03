@@ -18,11 +18,12 @@ This module defines main chat server application.
 # pylint: disable=logging-fstring-interpolation
 
 import asyncio
+import contextlib
 import json
 
-import aioredis
 import async_timeout
 import httpx
+import redis
 from starlette.applications import Starlette
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
@@ -43,39 +44,43 @@ class ChatApp(Starlette):
     sessions = {}
     sessions_lock = asyncio.Lock()
 
-    @classmethod
-    async def create(cls, config):
-        """Application factory"""
-        app = cls(config)
-        app.redis = await aioredis.from_url(config.get('redis_host'),
+    def __init__(self, config):
+        self.config = config
+        self.redis = redis.asyncio.from_url(config.get('redis_host'),
                                             encoding='utf-8',
                                             decode_responses=True)
-        asyncio.create_task(app.start_chat())
-        return app
-
-    def __init__(self, config):
         super().__init__(routes=[
             Route(config.get('monitor_endpoint', '/monitor'),
                   MonitorEndpoint),
             WebSocketRoute(config.get('ws_endpoint', "/ws/chat"),
                            WSChatEndpoint)
-        ])
-        self.config = config
+        ], lifespan=self.start_app)
+
+    @contextlib.asynccontextmanager
+    async def start_app(self, app):
+        task = asyncio.create_task(self.start_chat())
+        try:
+            yield
+        finally:
+            task.cancel()
+            await task
 
     async def start_chat(self):
         """Chat application starter"""
-        psub = self.redis.pubsub()
-        await psub.subscribe(self.config.get('channel_name', "chat:main"))
-        LOGGER.debug('Redis channel subscription enabled')
-        async with psub as p:  # pylint: disable=invalid-name
+        LOGGER.debug('>>> Starting Redis channel subscription...')
+        async with self.redis.pubsub() as psub:
+            LOGGER.debug(f'  > Getting subscription chanel...')
+            chanel_name = self.config.get('channel_name', "chat:main")
+            await psub.subscribe(chanel_name)
+            LOGGER.debug(f'  > Subscribed to chanel: {chanel_name}')
             while True:
                 try:
                     async with async_timeout.timeout(1):
-                        msg = await p.get_message(ignore_subscribe_messages=True)
+                        msg = await psub.get_message(ignore_subscribe_messages=True)
                         if msg is not None:
-                            LOGGER.debug(f'Loaded Redis message: {msg!r}')
+                            LOGGER.debug(f'>>> Loaded Redis message: {msg!r}')
                             await self.dispatch(msg)
-                        await asyncio.sleep(0.01)
+                    await asyncio.sleep(0.01)
                 except asyncio.TimeoutError:
                     pass
 
@@ -128,7 +133,7 @@ class ChatApp(Starlette):
                 return
         if message:
             async with self.sessions_lock:
-                principals = set(message.pop('target', {}).get('principals', []))
+                principals = set(message.get('target', {}).get('principals', []))
                 for session in self.sessions.values():
                     LOGGER.debug(f"  > checking session: {session}")
                     # don't send messages to other hosts
@@ -155,3 +160,5 @@ class ChatApp(Starlette):
                         .lpush(cache_key, json.dumps(message)) \
                         .ltrim(cache_key, 0, cache_length - 1) \
                         .execute()
+                data = await self.redis.lrange(cache_key, 0, -1)
+                LOGGER.debug(f"   < Redis queue: {len(data)} messages")
