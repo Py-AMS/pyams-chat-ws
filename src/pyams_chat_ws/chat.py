@@ -34,6 +34,7 @@ class WSChatEndpoint(WebSocketEndpoint):
 
     async def on_connect(self, ws: WebSocket):  # pylint: disable=arguments-renamed
         """Websocket connection handler"""
+        LOGGER.debug(f'Accepting connection {ws}...')
         await ws.accept('accessToken')
         if 'authenticated' in ws.auth.scopes:
             app = self.scope.get('app', None)
